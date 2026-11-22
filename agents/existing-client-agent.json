@@ -1,0 +1,66 @@
+{
+  "agent_name": "Rodriguez & Martinez Law - Known Client - Final",
+  "engine": "retell-llm",
+  "voice": {
+    "voice_id": "11labs-Cimo"
+  },
+  "language": "en-US",
+  "conversation_settings": {
+    "interruption_sensitivity": 0.9,
+    "end_call_after_silence_ms": 30000,
+    "max_call_duration_ms": 300000,
+    "stt_mode": "accurate",
+    "denoising_mode": "noise-and-background-speech-cancellation"
+  },
+  "post_call_analysis_data": [
+    {
+      "type": "boolean",
+      "name": "call_transferred",
+      "description": ""
+    },
+    {
+      "type": "boolean",
+      "name": "urgent",
+      "description": ""
+    },
+    {
+      "type": "string",
+      "name": "reason_for_calling",
+      "description": ""
+    }
+  ],
+  "llm": {
+    "model": "gpt-4.1",
+    "model_temperature": 0,
+    "tool_call_strict_mode": null,
+    "begin_message": "Hello {{first_name}}, welcome back to Rodriguez & Martinez Law. I'm Sofia and I'm a digital assistant, this call is being recorded. Would you like me to transfer you to your lawyer, {{lawyer_name}}, or were you calling about something else?",
+    "default_dynamic_variables": [],
+    "tools": [
+      {
+        "type": "end_call",
+        "name": "end_call",
+        "description": "End the call when user has to leave (like says bye) or you are instructed to do so."
+      },
+      {
+        "transfer_destination": {
+          "type": "inferred",
+          "prompt": "If {{lawyer_name}} is Mister Martinez transfer to +1 (212) 555-0101;\nIf {{lawyer_name}} is Miss Rodriguez transfer to +1 (212) 555-0102;\nIf {{lawyer_name}} is Miss Rachel transfer to +1 (212) 555-0103."
+        },
+        "name": "transfer_to_lawyer",
+        "description": "Transfer the call to the correct lawyer",
+        "ignore_e164_validation": false,
+        "transfer_option": {
+          "opt_out_initial_message": false,
+          "enable_bridge_audio_cue": true,
+          "type": "warm_transfer",
+          "private_handoff_option": {
+            "type": "prompt",
+            "prompt": "Let {{lawyer_name}} know that his client, {{first_name}}{{last_name}}, is on the call and wants to speak with them."
+          }
+        },
+        "type": "transfer_call"
+      }
+    ]
+  },
+  "webhook": "https://your-n8n-instance.example.com/webhook/YOUR_WEBHOOK_PATH"
+}

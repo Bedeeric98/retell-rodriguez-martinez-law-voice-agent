@@ -1,0 +1,2044 @@
+{
+  "name": "Rodriguez & Martinez Backend",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"locationId\": \"YOUR_GHL_LOCATION_ID\",\n  \"page\": 1,\n  \"pageLimit\": 20,\n  \"filters\": [\n    {\n      \"field\": \"phone\",\n      \"operator\": \"contains\",\n      \"value\": \"{{ $json.body.call_inbound.from_number }}\"\n    }\n  ]\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        144,
+        128
+      ],
+      "id": "6f6192a9-2d6c-4f71-9965-88b5a75326c6",
+      "name": "Search Contact on GHL"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_WEBHOOK_PATH",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        1088
+      ],
+      "id": "6bb5354b-8b7a-4c23-9c23-085a3e9989be",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1072,
+        976
+      ],
+      "id": "11825ab9-3141-45bb-902f-598e853f8677",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=<appointment_data>\nToday is {{ $now.weekdayLong }} {{ $now.monthLong }} {{\n$now.day }} {{ $now.year }} {{\n$now.setZone('America/New_York') }}\n\nThese are the current available dates:\n{{ JSON.stringify($json) }}\n</appointment_data>\n\n<instructions>\nTransform the JSON appointment data above into natural,\nconversational speech suitable for voice AI delivery. Follow\nthese specific rules:\n\n<grouping_rules>\n1. Group consecutive 30-minute time slots into ranges using \"between [start] and [end]\"\n2. The end time should be 30 minutes after the last slot in a consecutive group (even if that ending time does not appear in the JSON)\n3. Any gap greater than 30 minutes breaks the sequence and starts a new range\n4. Isolated single slots use \"at [time]\" format\n5. Multiple isolated slots use \"at [time1] or [time2]\" format\n</grouping_rules>\n\n<formatting_rules>\n1. Format each date as: [Day name] [Month] [Date with ordinal]\n2. Convert 24-hour time to 12-hour format with am/pm (no\nperiods in am/pm)\n3. Use \"ten am\" not \"10:00 am\", \"one-thirty pm\" not \"1:30 pm\"\n4. Omit \"zero\" minutes: \"three pm\" not \"three-zero-zero pm\"\n5. When a day has multiple time ranges, connect them with \",\nand also\"\n6. End each day's availability with a period before moving to\nthe next day\n</formatting_rules>\n\n<speech_patterns>\n- For days with only one slot: \"only availability is at\n[time]\"\n- For continuous ranges: \"between [start] and [end]\"\n- For multiple ranges/slots: use \", and also\" to connect them\n- List all time ranges explicitly - never summarize or\nabbreviate\n</speech_patterns>\n</instructions>\n\n<examples>\n<example>\n<input>\n{\"2025-06-18\":[{\"start\":\"2025-06-18T11:00:00.000-04:00\"},\n{\"start\":\"2025-06-18T11:30:00.000-04:00\"},{\"start\":\"2025-06-\n18T12:00:00.000-04:00\"},{\"start\":\"2025-06-18T12:30:00.000-\n04:00\"},{\"start\":\"2025-06-18T13:00:00.000-04:00\"}],\"2025-06-\n19\":[{\"start\":\"2025-06-19T10:00:00.000-04:00\"},{\"start\":\"2025-\n06-19T10:30:00.000-04:00\"},{\"start\":\"2025-06-19T15:00:00.000-\n04:00\"}],\"2025-06-20\":[{\"start\":\"2025-06-20T11:30:00.000-\n04:00\"}]}\n</input>\n<output>\nWednesday June 18th: between eleven am and one pm.\nThursday June 19th: at ten or ten-thirty am, and also at\nthree pm.\nFriday June 20th: only availability is at eleven-thirty am.\n</output>\n</example>\n\n<example>\n<input>\n{\"2025-07-14\":[{\"start\":\"2025-07-14T09:00:00.000-04:00\"},\n{\"start\":\"2025-07-14T09:30:00.000-04:00\"},{\"start\":\"2025-07-\n14T10:00:00.000-04:00\"},{\"start\":\"2025-07-14T14:00:00.000-\n04:00\"},{\"start\":\"2025-07-14T14:30:00.000-04:00\"},\n{\"start\":\"2025-07-14T15:00:00.000-04:00\"},{\"start\":\"2025-07-\n14T15:30:00.000-04:00\"}],\"2025-07-15\":[{\"start\":\"2025-07-\n15T13:00:00.000-04:00\"}],\"2025-07-16\":[{\"start\":\"2025-07-\n16T08:30:00.000-04:00\"},{\"start\":\"2025-07-16T11:00:00.000-\n04:00\"},{\"start\":\"2025-07-16T16:00:00.000-04:00\"},\n{\"start\":\"2025-07-16T16:30:00.000-04:00\"}]}\n</input>\n<output>\nMonday July 14th: between nine am and ten am, and also\nbetween two pm and three-thirty pm.\nTuesday July 15th: only availability is at one pm.\nWednesday July 16th: at eight-thirty am, and also at eleven\nam, and also at four or four-thirty pm.\n</output>\n</example>\n\n<example>\n<input>\n{\"2025-08-01\":[{\"start\":\"2025-08-01T10:00:00.000-04:00\"},\n{\"start\":\"2025-08-01T10:30:00.000-04:00\"},{\"start\":\"2025-08-\n01T11:00:00.000-04:00\"},{\"start\":\"2025-08-01T11:30:00.000-\n04:00\"},{\"start\":\"2025-08-01T12:00:00.000-04:00\"},\n{\"start\":\"2025-08-01T14:30:00.000-04:00\"},{\"start\":\"2025-08-\n01T15:00:00.000-04:00\"},{\"start\":\"2025-08-01T15:30:00.000-\n04:00\"}]}\n</input>\n<output>\nFriday August 1st: between ten am and twelve pm, and also\nbetween two-thirty pm and three-thirty pm.\n</output>\n</example>\n\n<example>\n<input>\n{\"2025-09-22\":[{\"start\":\"2025-09-22T08:00:00.000-04:00\"},\n{\"start\":\"2025-09-22T08:30:00.000-04:00\"},{\"start\":\"2025-09-\n22T12:30:00.000-04:00\"},{\"start\":\"2025-09-22T13:00:00.000-\n04:00\"},{\"start\":\"2025-09-22T13:30:00.000-04:00\"},\n{\"start\":\"2025-09-22T17:00:00.000-04:00\"}],\"2025-09-23\":[\n{\"start\":\"2025-09-23T09:30:00.000-04:00\"},{\"start\":\"2025-09-\n23T14:00:00.000-04:00\"}],\"2025-09-24\":[]}\n</input>\n<output>\nMonday September 22nd: between eight am and eight-thirty am,\nand also between twelve-thirty pm and one-thirty pm, and also\nat five pm.\nTuesday September 23rd: at nine-thirty am, and also at two pm.\n</output>\n</example>\n</examples>\n\n<task>\nToday is {{ $now.weekdayLong }} {{ $now.monthLong }} {{\n$now.day }} {{ $now.year }} {{\n$now.setZone('America/Toronto') }}\nUsing the appointment data provided at the beginning, create\nthe voice-optimized output following all rules above. Begin\nyour response directly with the first day's availability.\n</task>",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1072,
+        768
+      ],
+      "id": "3c43edb1-8f3f-4903-8441-6ef8bbeda8a9",
+      "name": "7-Day Availability"
+    },
+    {
+      "parameters": {
+        "url": "=https://services.leadconnectorhq.com/calendars/{{ $json.calendarId }}/free-slots",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"startDate\": {{ $json.start_date }},\n  \"endDate\": {{ $json.end_date }},\n  \"timezone\": \"{{ $json.timezone }}\",\n  \"userIds\": [\n    \"YOUR_GHL_USER_ID_4\",\n    \"YOUR_GHL_USER_ID_2\",\n    \"YOUR_GHL_USER_ID_3\"\n  ]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-04-15"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        768,
+        768
+      ],
+      "id": "deef61a5-5a1c-461a-a695-88d2dd181f7c",
+      "name": "Get Available Slots GHL"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1424,
+        976
+      ],
+      "id": "592b31e9-1720-40f7-b480-87942d4984d4",
+      "name": "OpenAI Chat Model1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=#Objective\nYour task is to transform the provided set of available\nappointment slots into human-spoken form. You should provide\nonly 2 times in different times of day or in different days\n(depending on the available slots provided).\n\nYour output should fit the sentence: \"We have availability on <date time 1 and date time 2>. When works for you?\"\n\n#Examples\nExample input 1:\n{\"2025-05-07\":[{\"start\":\"2025-05-07T09:00:00.000-04:00\"},\n{\"start\":\"2025-05-07T09:30:00.000-04:00\"},{\"start\":\"2025-05-\n07T10:00:00.000-04:00\"}],\"2025-05-08\":[{\"start\":\"2025-05-\n08T09:30:00.000-04:00\"}, {\"start\":\"2025-05-08T15:30:00.000-\n04:00\"}]}\nOutput 1:\nWednesday at nine am Eastern and Thursday at nine-thirty am\n\nExample input 2:\n{\"2025-05-30\":[{\"start\":\"2025-05-30T15:30:00.000-\n04:00\"}],\"2025-06-03\":[{\"start\":\"2025-06-03T09:30:00.000-\n04:00\"}, {\"start\":\"2025-06-03T15:30:00.000-04:00\"},]}\nOutput 2:\nFriday at three-thirty pm Eastern and Tuesday at nine-thirty\nam\n\nExample input 3:\n{\"2025-04-30\":[{\"start\":\"2025-04-30T15:00:00.000-04:00\"},\n{\"start\":\"2025-04-30T15:30:00.000-04:00\"}],\"2025-05-01\":\n[{\"start\":\"2025-05-01T09:30:00.000-04:00\"}]}\nOutput 3:\nWednesday at three pm Eastern and Thursday at nine-thirty am\n\nExample input 4:\n{\"2025-05-20\":[{\"start\":\"2025-05-20T10:00:00.000-04:00\"},\n{\"start\":\"2025-05-20T15:30:00.000-04:00\"}],\"2025-05-21\":\n[{\"start\":\"2025-05-21T09:30:00.000-04:00\"}]}\nOutput 4:\nTuesday at ten am Eastern and three-thirty pm\n\nExample input 5:\n{\"2025-05-20\":[{\"start\":\"2025-05-20T09:00:00.000-\n04:00\"}],\"2025-05-28\":[{\"start\":\"2025-05-28T11:30:00.000-\n04:00\"},{\"start\":\"2025-05-28T12:00:00.000-04:00\"},\n{\"start\":\"2025-05-28T13:30:00.000-04:00\"},{\"start\":\"2025-05-\n28T14:00:00.000-04:00\"},{\"start\":\"2025-05-28T14:30:00.000-\n04:00\"},{\"start\":\"2025-05-28T15:00:00.000-04:00\"},\n{\"start\":\"2025-05-28T16:30:00.000-04:00\"}]}\nOutput 5:\nTuesday the twentieth at nine am Eastern and the following\nWednesday the twenty-eighth at eleven-thirty am\n\n\n#Start\nToday is {{ $now.weekdayLong }} {{ $now.monthLong }} {{\n$now.day }} {{ $now.setZone('America/Toronto') }}\n\nThese are the current available dates:\n{{ JSON.stringify( $('Get Available Slots GHL').item.json) }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1424,
+        768
+      ],
+      "id": "faed5cd3-7958-4597-a0d8-2ad19806b313",
+      "name": "Soonest Availability"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "92e51fd7-e3a3-41d9-8dbc-e27c7d2bebe6",
+              "name": "calendarId",
+              "value": "YOUR_GHL_CALENDAR_ID",
+              "type": "string"
+            },
+            {
+              "id": "21f5640d-48f8-4c70-a95b-5cabdbe2aa1d",
+              "name": "start_date",
+              "value": "={{ new Date(new Date().setHours(0,0,0,0)).getTime() }}",
+              "type": "string"
+            },
+            {
+              "id": "9c68ce92-7187-4c65-ad8d-fe64824e73ab",
+              "name": "end_date",
+              "value": "={{ new Date(new Date().setDate(new Date().getDate() + 7)).setHours(23,59,59,999) }}",
+              "type": "string"
+            },
+            {
+              "id": "f220dbfd-650c-4800-b42a-c0479ccd1886",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        768
+      ],
+      "id": "e565531d-fe07-42a6-a445-29b56e8fa7b7",
+      "name": "Set Parameters"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2080,
+        768
+      ],
+      "id": "3c121882-1093-4b13-bab3-f5d7feb6d29b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "163054ed-9b2e-4a82-9fb7-ee96c8183a6f",
+                    "leftValue": "={{ $json.body.name }}",
+                    "rightValue": "check_availability",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Check Availability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.name }}",
+                    "rightValue": "book_appointment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d7909dfd-54c2-4418-b1df-90f3863c1204"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Book Appointment"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        176,
+        1088
+      ],
+      "id": "a956395e-7092-42ec-aafc-eac4ee3da11a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/calendars/events/appointments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-04-15"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"R&M Law Consultation\",\n  \"appointmentStatus\": \"confirmed\",\n  \"description\": \"Booking a call to discuss your case\",\n  \"calendarId\": \"YOUR_GHL_CALENDAR_ID\",\n  \"locationId\": \"{{ $json.contact.locationId }}\",\n  \"contactId\": \"{{ $json.contact.id }}\",\n  \"startTime\": \"{{ $('Webhook').item.json.body.args.absolute_time }}\",\n  \"endTime\": \"{{ DateTime.fromISO($('Webhook').item.json.body.args.absolute_time).plus({minutes: 30}).toISO({suppressMilliseconds: true}) }}\"\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        960,
+        1216
+      ],
+      "id": "2cce3557-ae74-4478-8464-8e4bf31e2ab2",
+      "name": "Book Appointment",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"locationId\": \"YOUR_GHL_LOCATION_ID\",\n  \"firstName\": \"{{ $json.body.args.first_name }}\",\n  \"lastName\": \"{{ $json.body.args.last_name }}\",\n  \"email\": \"{{ $json.body.args.email_address }}\",\n  \"phone\": \"{{ $('Webhook').item.json.body.call.from_number }}\",\n  \"source\": \"public api\",\n  \"country\": \"US\",\n  \"timezone\": \"America/New_York\",\n  \"tags\": [\"New Contact\"]\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        688,
+        1216
+      ],
+      "id": "927392bf-bb1c-4ec1-a4a2-a72dc2966ae4",
+      "name": "Create Contact"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=The date format you will receive: {{ $json.statute_limitation_date }}\n\nConvert date received to natural Language format.\n\nOutput format: Saturday, 13 December, 2025",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1152,
+        368
+      ],
+      "id": "95496d34-2a2b-4512-9134-dc3081a23f3b",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        528
+      ],
+      "id": "f0ca91a7-dcb3-4070-abdf-ec62a6921a9b",
+      "name": "OpenAI Chat Model2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/YOUR_KNOWLEDGE_BASE_DOC_ID/edit?tab=t.0"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        672,
+        368
+      ],
+      "id": "66444169-d5d5-4cf8-be27-45b27146862e",
+      "name": "Fetch Knowledge Base"
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}",
+        "timeUnit": "years",
+        "duration": 4,
+        "outputFieldName": "=statute_limitation_date",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        928,
+        368
+      ],
+      "id": "56e48484-0640-401c-89b2-9ce8a74148fd",
+      "name": "Calculate Statute of Limitation"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5c52d3dc-4b4c-4f8b-bbd1-d73c29929c86",
+              "name": "knowledge_base",
+              "value": "={{ $('Fetch Knowledge Base').item.json.content }}",
+              "type": "string"
+            },
+            {
+              "id": "021a11ac-ecd5-4c4a-aaea-5d6dc69caee2",
+              "name": "statute_limitation_date",
+              "value": "={{ $json.text.replace(/,/g, '').replace(/\\n/g, '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        368
+      ],
+      "id": "a23024aa-b4d9-4f6e-98b1-a900b028a3f1",
+      "name": "Set Inbound Parameters"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03dd1687-7465-4318-8598-c6c0c837ae98",
+              "name": "soonest_availability",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "aa896e15-646f-436f-8bf5-0f30b75183d1",
+              "name": "one_week_availability",
+              "value": "={{ $('7-Day Availability').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1808,
+        768
+      ],
+      "id": "3a2720e4-b4d4-4cb8-9d4b-385beb8b6567",
+      "name": "Set Check Availability Webhook Parameters"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"locationId\": \"YOUR_GHL_LOCATION_ID\",\n  \"page\": 1,\n  \"pageLimit\": 20,\n  \"filters\": [\n    {\n      \"field\": \"phone\",\n      \"operator\": \"contains\",\n      \"value\": \"{{ $('EOCR Webhook').item.json.body.call.from_number }}\"\n    }\n  ]\n} ",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        528,
+        1840
+      ],
+      "id": "f63fe996-12de-46ab-b93c-d1a0dbd8ada9",
+      "name": "Search Contact on GHL1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_WEBHOOK_PATH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        1840
+      ],
+      "id": "a75d49aa-4393-44b4-822d-f05b92f0af47",
+      "name": "EOCR Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "83a32f82-a061-46ae-9c8e-30a284a562cf",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "call_analyzed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        96,
+        1840
+      ],
+      "id": "07dc8d8c-1bbe-4964-b884-e4c3c3b6e564",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_WEBHOOK_PATH",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        128
+      ],
+      "id": "667294d7-2df9-4837-ad8e-c4123e5528c4",
+      "name": "Inbound Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "96b54b19-3149-46fe-a383-81a0c03488c8",
+              "name": "first_name",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "2e360459-32a7-4d6e-b94e-da00676db0e3",
+              "name": "last_name",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "3edca24b-1d8a-4f83-830b-381fe0a27a99",
+              "name": "email",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.email }}",
+              "type": "string"
+            },
+            {
+              "id": "bafb287b-0e53-4a47-a98e-cd17ea38604c",
+              "name": "appointment_booked",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.appointment_booked }}",
+              "type": "boolean"
+            },
+            {
+              "id": "46a916c5-7d88-4f9c-b39c-8a7a4224dbf4",
+              "name": "caller_qualified",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.caller_qualified }}",
+              "type": "boolean"
+            },
+            {
+              "id": "278bfa75-70ac-449a-a52f-18ff016bb3a8",
+              "name": "urgent",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.urgent }}",
+              "type": "boolean"
+            },
+            {
+              "id": "09acde25-471f-4eb9-a800-7772aa4af34a",
+              "name": "callback_number",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.callback_number }}",
+              "type": "number"
+            },
+            {
+              "id": "5acf9a98-cfe4-42e7-af1e-c374976ff4e7",
+              "name": "accident_type",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.accident_type }}",
+              "type": "string"
+            },
+            {
+              "id": "acd1d164-8529-4240-afc2-aac962d540c3",
+              "name": "accident_date",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.accident_date }}",
+              "type": "string"
+            },
+            {
+              "id": "81875579-d8a8-4c8b-89e4-1841daa68167",
+              "name": "accident_location",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.accident_location }}",
+              "type": "string"
+            },
+            {
+              "id": "c394001c-d0dc-425a-9422-72fd9d362554",
+              "name": "injured_doctor_visit",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.injured_doctor_visit }}",
+              "type": "string"
+            },
+            {
+              "id": "7d3f6646-2918-41e9-9179-2c89e6173e80",
+              "name": "at_fault_party",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.at_fault_party }}",
+              "type": "string"
+            },
+            {
+              "id": "1b10b64d-1c0d-450d-8454-0ca4a5194f7b",
+              "name": "police_report_filed",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.police_report_filed }}",
+              "type": "string"
+            },
+            {
+              "id": "dda4de7d-c43f-4654-9732-05fa61ed3f10",
+              "name": "insurance_contacted",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.custom_analysis_data.insurance_contacted }}",
+              "type": "string"
+            },
+            {
+              "id": "37785057-bdd3-4cac-be51-45d14a66418a",
+              "name": "call_summary",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.call_analysis.call_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "139f3daf-591b-4f9f-a352-a716db6f4535",
+              "name": "call_transcript",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "ffd42846-2338-434a-bbe8-93c0876b17b3",
+              "name": "call_recording",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.recording_url }}",
+              "type": "string"
+            },
+            {
+              "id": "36c7519a-99f6-4e2d-927b-239fec852d88",
+              "name": "phone",
+              "value": "={{ $('EOCR Webhook').item.json.body.call.from_number }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        1840
+      ],
+      "id": "3a343df0-c404-42a6-9411-04ffb769e4b1",
+      "name": "Set Incoming Lead Data"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $json.contacts[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": [\"Qualified & Booked\"],\n  \"customFields\": [\n    {\n      \"key\": \"accident_type\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_type }}\"\n    },\n    {\n      \"key\": \"accident_date\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_date }}\"\n    },\n    {\n      \"key\": \"accident_location\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_location }}\"\n    },\n    {\n      \"key\": \"injured_doctor_visit\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.injured_doctor_visit }}\"\n    },\n    {\n      \"key\": \"at_fault_party\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.at_fault_party }}\"\n    },\n    {\n      \"key\": \"police_report_filed\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.police_report_filed }}\"\n    },\n    {\n      \"key\": \"insurance_contacted\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.insurance_contacted }}\"\n    }\n  ]\n}\n",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1152,
+        1664
+      ],
+      "id": "4dac2392-e3d2-4ac1-ac9e-ed052272f678",
+      "name": "Update Contact GHL Qualified & Booked",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a378b11-4190-4dcf-8dd1-5c45664f1572",
+              "leftValue": "={{ $('Set Incoming Lead Data').item.json.appointment_booked }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "34dccbb3-3c06-427c-b1cf-2d2953187d77",
+              "leftValue": "={{ $('Set Incoming Lead Data').item.json.caller_qualified }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        1920
+      ],
+      "id": "26293f88-5600-4874-85b4-855863182627",
+      "name": "If Qualified and Not Booked"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b95345f9-a3d3-47f5-a89e-1ebf84d13255",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        1840
+      ],
+      "id": "797f2dde-308e-4032-9eef-d3f305d5bf01",
+      "name": "If Contact Found"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"firstName\": \"{{ $('Set Incoming Lead Data').item.json.first_name }}\",\n  \"lastName\": \"{{ $('Set Incoming Lead Data').item.json.last_name }}\",\n  \"name\": \"{{ $('Set Incoming Lead Data').item.json.first_name }} {{ $('Set Incoming Lead Data').item.json.last_name }}\",\n  \"email\": \"{{ $('Set Incoming Lead Data').item.json.email }}\",\n  \"locationId\": \"YOUR_GHL_LOCATION_ID\",\n  \"phone\": \"{{ $('Set Incoming Lead Data').item.json.phone }}\",\n  \"tags\": [\"Qualified & Not Booked\"],\n  \"customFields\": [\n    {\n      \"key\": \"accident_type\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_type }}\"\n    },\n    {\n      \"key\": \"accident_date\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_date }}\"\n    },\n    {\n      \"key\": \"accident_location\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.accident_location }}\"\n    },\n    {\n      \"key\": \"injured_doctor_visit\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.injured_doctor_visit }}\"\n    },\n    {\n      \"key\": \"at_fault_party\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.at_fault_party }}\"\n    },\n    {\n      \"key\": \"police_report_filed\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.police_report_filed }}\"\n    },\n    {\n      \"key\": \"insurance_contacted\",\n      \"field_value\": \"{{ $('Set Incoming Lead Data').item.json.insurance_contacted }}\"\n    }\n  ]\n}\n",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1488,
+        1840
+      ],
+      "id": "a588d9d9-52cc-4dce-badb-ce3c2d4ac9ed",
+      "name": "Create Contact GHL Qualified & Not Booked"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eee48b05-3aef-4520-8818-ee0c3c8dc063",
+              "leftValue": "={{ $json.total }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        128
+      ],
+      "id": "2be6833d-3f43-40c1-94cd-207d3e6a6747",
+      "name": "If Contact Exists"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "96b54b19-3149-46fe-a383-81a0c03488c8",
+              "name": "first_name",
+              "value": "={{ $json.contacts[0].firstName }}",
+              "type": "string"
+            },
+            {
+              "id": "2e360459-32a7-4d6e-b94e-da00676db0e3",
+              "name": "last_name",
+              "value": "={{ $json.contacts[0].lastName }}",
+              "type": "string"
+            },
+            {
+              "id": "3edca24b-1d8a-4f83-830b-381fe0a27a99",
+              "name": "email",
+              "value": "={{ $json.contacts[0].email }}",
+              "type": "string"
+            },
+            {
+              "id": "314974b4-cbb4-480a-8756-d1d6681f502d",
+              "name": "assigned_lawyer_id",
+              "value": "={{ $json.contacts[0].assignedTo }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        976,
+        -160
+      ],
+      "id": "1e9972bc-75e2-47fd-b8b5-55f8cde043dc",
+      "name": "Set Incoming Lead Data1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Search Contact on GHL1').item.json.contacts[0].id }}/notes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Version",
+              "value": "2021-04-15"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "=Call Summary for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_summary }}\n\nCall Transcript for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_transcript }}\n\nRecording URL for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_recording }}"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1376,
+        1664
+      ],
+      "id": "6f7a23d4-27f3-4787-980c-7b4690866553",
+      "name": "Create Note GHL Qualified & Booked"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Search Contact on GHL1').item.json.contacts[0].id }}/notes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Version",
+              "value": "2021-04-15"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "=Call Summary for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_summary }}\n\nCall Transcript for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_transcript }}\n\nRecording URL for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Incoming Lead Data').item.json.call_recording }}"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1712,
+        1840
+      ],
+      "id": "b09581b8-4270-44ca-96c5-bf712e86393b",
+      "name": "Create Note GHL Qualified & Not Booked"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "your appointment has been booked successfully",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1312,
+        1120
+      ],
+      "id": "cdc6778b-cfe0-4749-94b2-c6320d014105",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Sorry, I could not book your appointment at this time",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1312,
+        1328
+      ],
+      "id": "3db6958d-3338-487d-92ad-fd892c373fc5",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        2128
+      ],
+      "id": "5af30573-7bd1-4cca-94ff-608f8054cdb0",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "jsCode": "const assignedId = $json.assigned_lawyer_id;\n\nlet lawyerName = null;\n\nif (assignedId === 'YOUR_GHL_USER_ID_4') {\n  lawyerName = 'Miss Rodriguez';\n} else if (assignedId === 'YOUR_GHL_USER_ID_2') {\n  lawyerName = 'Mister Martinez';\n} else if (assignedId === 'YOUR_GHL_USER_ID_3') {\n  lawyerName = 'Miss Rachel';\n}\n\nreturn [\n  {\n    json: {\n      ...$json,\n      lawyer_name: lawyerName\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -160
+      ],
+      "id": "be1aa0b4-3c30-4450-8b73-b238dbc0e1c5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"call_inbound\": {\n    \"override_agent_id\": \"YOUR_RETELL_EXISTING_CLIENT_AGENT_ID\",\n    \"dynamic_variables\": {\n      \"first_name\": \"{{ $json.first_name }}\",\n      \"last_name\": \"{{ $json.last_name }}\",\n      \"lawyer_name\": \"{{ $json.lawyer_name }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1680,
+        -160
+      ],
+      "id": "0cc73649-ab60-4c6e-993a-042bdbe2f11d",
+      "name": "Respond to Webhook Existing Client"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c8f899da-b323-4a14-97c0-3ec90b60f91c",
+              "leftValue": "={{ $json.contacts[0].tags }}",
+              "rightValue": "existing client",
+              "operator": {
+                "type": "array",
+                "operation": "contains",
+                "rightType": "any"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        688,
+        -144
+      ],
+      "id": "5c664748-8eec-4129-b9f3-3984b7813fb0",
+      "name": "If Existing Client"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"call_inbound\": {\n    \"override_agent_id\": \"YOUR_RETELL_NEW_CALLER_AGENT_ID\",\n    \"dynamic_variables\": {\n      \"knowledge_base\": {{ JSON.stringify($json.knowledge_base) }},\n      \"statute_limitation_deadline\": \"{{ $json.statute_limitation_date }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1712,
+        368
+      ],
+      "id": "608cf211-5d30-4ac7-a325-3387c35f379e",
+      "name": "Respond to Webhook New Caller"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_WEBHOOK_PATH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        2752
+      ],
+      "id": "adedce74-3530-49ab-88a0-1e31589bcca5",
+      "name": "EOCR Webhook Known Client"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "83a32f82-a061-46ae-9c8e-30a284a562cf",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "call_analyzed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        272,
+        2752
+      ],
+      "id": "7c713d42-bd67-4b65-8f5e-16c60926e79d",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ae62f9ba-e2fc-4227-bb40-a6c32c382fc9",
+              "name": "first_name",
+              "value": "={{ $json.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "e8e7ed35-22b3-41f3-b925-b79775ec185c",
+              "name": "last_name",
+              "value": "={{ $json.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "feef741e-cf9f-4761-a5a7-040759f61129",
+              "name": "lawyer_name",
+              "value": "={{ $json.lawyer_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1408,
+        -160
+      ],
+      "id": "2a6a1752-d212-4d2d-99d3-d1b9b7c7059d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"locationId\": \"YOUR_GHL_LOCATION_ID\",\n  \"page\": 1,\n  \"pageLimit\": 20,\n  \"filters\": [\n    {\n      \"field\": \"phone\",\n      \"operator\": \"contains\",\n      \"value\": \"{{ $json.phone }}\"\n    }\n  ]\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        736,
+        2752
+      ],
+      "id": "050ad71d-a825-467b-a586-43cc0b42c0c9",
+      "name": "Search Contact on GHL2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c7d8dfea-6eca-46aa-9d0b-e0a593659bec",
+              "name": "first_name",
+              "value": "={{ $json.body.call.retell_llm_dynamic_variables.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "63f55604-59f8-432e-9d2b-12648228e204",
+              "name": "last_name",
+              "value": "={{ $json.body.call.retell_llm_dynamic_variables.last_name }}",
+              "type": "string"
+            },
+            {
+              "id": "eb34587d-698a-4ba6-9d8a-5bb260b758b6",
+              "name": "phone",
+              "value": "={{ $json.body.call.from_number }}",
+              "type": "string"
+            },
+            {
+              "id": "93769ebd-ee9f-42f3-a80b-728f2289ef70",
+              "name": "call_summary",
+              "value": "={{ $json.body.call.call_analysis.call_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "ac4333ea-a00f-4d1f-8637-1e157cab5cb0",
+              "name": "call_recording",
+              "value": "={{ $json.body.call.recording_url }}",
+              "type": "string"
+            },
+            {
+              "id": "8c667a9a-d85b-4672-bdeb-b27853824168",
+              "name": "call_transcript",
+              "value": "={{ $json.body.call.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "19b6f990-a032-46f5-9ca1-600dd4d748f0",
+              "name": "call_transferred",
+              "value": "={{ $json.body.call.call_analysis.custom_analysis_data.call_transferred }}",
+              "type": "boolean"
+            },
+            {
+              "id": "a7b361c5-4f39-4fc5-b68b-58958b21f10e",
+              "name": "urgent",
+              "value": "={{ $json.body.call.call_analysis.custom_analysis_data.urgent }}",
+              "type": "boolean"
+            },
+            {
+              "id": "b66df029-c7ce-4788-aba0-cf695e498cc4",
+              "name": "reason_for_calling",
+              "value": "={{ $json.body.call.call_analysis.custom_analysis_data.reason_for_calling }}",
+              "type": "string"
+            },
+            {
+              "id": "70e3388b-b693-4331-8aed-011fbdee36b3",
+              "name": "lawyer_name",
+              "value": "={{ $('EOCR Webhook Known Client').item.json.body.call.retell_llm_dynamic_variables.lawyer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "78bf1b5c-f302-46e8-8202-a466d47d3f30",
+              "name": "call_time",
+              "value": "={{ DateTime.fromMillis($json.body.call.start_timestamp).setZone('America/New_York').toFormat('cccc, LLLL d, yyyy - h:mm a') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        2752
+      ],
+      "id": "47a38722-4d26-470d-8159-64ac616d6b28",
+      "name": "Set Parameters Existing Client Update"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Search Contact on GHL2').item.json.contacts[0].id }}/notes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            },
+            {
+              "name": "Authorization",
+              "value": "REDACTED"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "=Call Summary for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Parameters Existing Client Update').item.json.call_summary }}\n\nCall Transcript for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Parameters Existing Client Update').item.json.call_transcript }}\n\nRecording URL for {{ $now.setZone('America/New_York').toFormat('cccc d LLLL yyyy') }}: {{ $('Set Parameters Existing Client Update').item.json.call_recording }}\n"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1008,
+        2752
+      ],
+      "id": "b0679ecb-de03-4b45-970a-777f34cf8b61",
+      "name": "Create New Note Per Call GHL"
+    },
+    {
+      "parameters": {
+        "sendTo": "user@example.com",
+        "subject": "=URGENT: Missed Call from {{ $('Set Parameters Existing Client Update').first().json.first_name }} {{ $('Set Parameters Existing Client Update').first().json.last_name }} - IMMEDIATE Callback Required",
+        "emailType": "text",
+        "message": "={{ $('Set Parameters Existing Client Update').first().json.lawyer_name }},\n\nYour client {{ $('Set Parameters Existing Client Update').first().json.first_name }} {{ $('Set Parameters Existing Client Update').first().json.last_name }} called and was unable to reach you. The client indicated this matter is URGENT.\n\nREASON FOR CALLING:\n\n{{ $('Set Parameters Existing Client Update').first().json.reason_for_calling }}\n\nCLIENT CONTACT:\n{{ $('Set Parameters Existing Client Update').first().json.phone }}\n\nCALL DETAILS:\n- Date/Time: {{ $('Set Parameters Existing Client Update').first().json.call_time }} EST\n- Call Recording: {{ $('Set Parameters Existing Client Update').first().json.call_recording }}\n\nRECOMMENDED ACTION:\nPlease return this call as soon as possible. The client explicitly requested urgent attention.\n\nCall Summary:\n{{ $('Set Parameters Existing Client Update').first().json.call_summary }}\n\n---\nThis is an automated notification from your Rodriguez & Martinez Law voice assistant.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        2544
+      ],
+      "id": "4971dcb1-9b35-4ca2-a9ad-1b28f9f3558e",
+      "name": "Send Urgency Email"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚨 URGENT MISSED CALL 🚨\n\nClient: {{ $('Set Parameters Existing Client Update').first().json.first_name }} {{ $('Set Parameters Existing Client Update').first().json.last_name }}\nPhone: {{ $('Set Parameters Existing Client Update').first().json.phone }}\n\nReason: {{ $('Set Parameters Existing Client Update').first().json.reason_for_calling }}\n\n⏰ Date/Time: {{ $('Set Parameters Existing Client Update').first().json.call_time }} EST\n\n❗ Client marked this as URGENT - immediate callback required.\n\n🎧 Recording: {{ $('Set Parameters Existing Client Update').first().json.call_recording }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1968,
+        2544
+      ],
+      "id": "bb8d5d53-87a0-487a-ac14-e596f7c45f6f",
+      "name": "Send Urgency Message"
+    },
+    {
+      "parameters": {
+        "sendTo": "user@example.com",
+        "subject": "=Missed Call from {{ $('Set Parameters Existing Client Update').first().json.first_name }} {{ $('Set Parameters Existing Client Update').first().json.last_name }} - Callback Requested",
+        "emailType": "text",
+        "message": "={{ $('Set Parameters Existing Client Update').first().json.lawyer_name }},\n\nYour client {{ $('Set Parameters Existing Client Update').first().json.first_name }} {{ $('Set Parameters Existing Client Update').first().json.last_name }} called and was unable to reach you.\n\nREASON FOR CALLING:\n{{ $('Set Parameters Existing Client Update').first().json.reason_for_calling }}\n\nCLIENT CONTACT:\n{{ $('Set Parameters Existing Client Update').first().json.phone }}\n\nCALL DETAILS:\n- Date/Time: {{ $('Set Parameters Existing Client Update').first().json.call_time }} EST\n- Call Recording: {{ $('Set Parameters Existing Client Update').first().json.call_recording }}\n\nCall Summary:\n{{ $('Set Parameters Existing Client Update').first().json.call_summary }}\n\nPlease return this call at your earliest convenience.\n\n---\nThis is an automated notification from your Rodriguez & Martinez Law voice assistant.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1952,
+        2752
+      ],
+      "id": "4cea258a-647c-4d95-9626-62d2785d68b1",
+      "name": "Transfer Failure Email"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4abf4f4b-4ec9-4516-8f06-795776786d37",
+              "leftValue": "={{ $('Set Parameters Existing Client Update').item.json.urgent }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "2e643f72-615e-4654-a920-212875f859fe",
+              "leftValue": "={{ $('Set Parameters Existing Client Update').item.json.call_transferred }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1472,
+        2752
+      ],
+      "id": "291a576b-5e2a-42e8-8781-97336f345961",
+      "name": "If Urgent and Transfer Failed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ebc319a1-31e0-408f-8cf9-168cf58fd044",
+              "leftValue": "={{ $('Set Parameters Existing Client Update').item.json.call_transferred }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b991401d-89a5-4fd4-85fd-de1a21ac6e0a",
+              "leftValue": "={{ $('Set Parameters Existing Client Update').item.json.urgent }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1744,
+        2768
+      ],
+      "id": "14766e88-11e0-4525-95a5-38aa63c60b04",
+      "name": "If Not Urgent and Transfer Failed"
+    }
+  ],
+  "connections": {
+    "Search Contact on GHL": {
+      "main": [
+        [
+          {
+            "node": "If Contact Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "7-Day Availability",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Slots GHL": {
+      "main": [
+        [
+          {
+            "node": "7-Day Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Soonest Availability",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7-Day Availability": {
+      "main": [
+        [
+          {
+            "node": "Soonest Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Parameters": {
+      "main": [
+        [
+          {
+            "node": "Get Available Slots GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soonest Availability": {
+      "main": [
+        [
+          {
+            "node": "Set Check Availability Webhook Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Set Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Contact": {
+      "main": [
+        [
+          {
+            "node": "Book Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Set Inbound Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Knowledge Base": {
+      "main": [
+        [
+          {
+            "node": "Calculate Statute of Limitation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Statute of Limitation": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Check Availability Webhook Parameters": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Inbound Parameters": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook New Caller",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Contact on GHL1": {
+      "main": [
+        [
+          {
+            "node": "If Contact Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EOCR Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search Contact on GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Set Incoming Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Incoming Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Search Contact on GHL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Qualified and Not Booked": {
+      "main": [
+        [
+          {
+            "node": "Create Contact GHL Qualified & Not Booked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Contact Found": {
+      "main": [
+        [
+          {
+            "node": "Update Contact GHL Qualified & Booked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Qualified and Not Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Contact Exists": {
+      "main": [
+        [
+          {
+            "node": "If Existing Client",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Knowledge Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Contact GHL Qualified & Booked": {
+      "main": [
+        [
+          {
+            "node": "Create Note GHL Qualified & Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Contact GHL Qualified & Not Booked": {
+      "main": [
+        [
+          {
+            "node": "Create Note GHL Qualified & Not Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Appointment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Incoming Lead Data1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Existing Client": {
+      "main": [
+        [
+          {
+            "node": "Set Incoming Lead Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EOCR Webhook Known Client": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook Existing Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Note GHL Qualified & Not Booked": {
+      "main": [
+        []
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Set Parameters Existing Client Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Contact on GHL2": {
+      "main": [
+        [
+          {
+            "node": "Create New Note Per Call GHL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Parameters Existing Client Update": {
+      "main": [
+        [
+          {
+            "node": "Search Contact on GHL2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Note Per Call GHL": {
+      "main": [
+        [
+          {
+            "node": "If Urgent and Transfer Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Urgency Email": {
+      "main": [
+        [
+          {
+            "node": "Send Urgency Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transfer Failure Email": {
+      "main": [
+        []
+      ]
+    },
+    "If Urgent and Transfer Failed": {
+      "main": [
+        [
+          {
+            "node": "Send Urgency Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If Not Urgent and Transfer Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Urgent and Transfer Failed": {
+      "main": [
+        [
+          {
+            "node": "Transfer Failure Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {}
+}

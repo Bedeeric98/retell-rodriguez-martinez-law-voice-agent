@@ -1,0 +1,206 @@
+{
+  "agent_name": "Rodriguez & Martinez Law Inbound Agent - Final",
+  "engine": "retell-llm",
+  "voice": {
+    "voice_id": "11labs-Cimo"
+  },
+  "language": "en-US",
+  "conversation_settings": {
+    "interruption_sensitivity": 0.9,
+    "end_call_after_silence_ms": 30000,
+    "max_call_duration_ms": 594000,
+    "stt_mode": "accurate",
+    "denoising_mode": "noise-and-background-speech-cancellation"
+  },
+  "post_call_analysis_data": [
+    {
+      "name": "first_name",
+      "description": "The caller's first name",
+      "type": "string",
+      "examples": [
+        "Brian"
+      ]
+    },
+    {
+      "name": "last_name",
+      "description": "The last name of the caller",
+      "type": "string",
+      "examples": [
+        "Wilson"
+      ]
+    },
+    {
+      "name": "email",
+      "description": "The user's email",
+      "type": "string",
+      "examples": [
+        "user@example.com",
+        "user@example.com"
+      ]
+    },
+    {
+      "type": "boolean",
+      "name": "appointment_booked",
+      "description": "Whether the user successfully booked an appointment"
+    },
+    {
+      "type": "boolean",
+      "name": "caller_qualified",
+      "description": "Whether the caller met all the qualifying criteria"
+    },
+    {
+      "type": "boolean",
+      "name": "urgent",
+      "description": "Flag as URGENT if the case is within 120 days of statute deadline. Florida's statute of limitation is 4 years. Use {{current_time_America/New_York}} for time verification."
+    },
+    {
+      "type": "number",
+      "name": "callback_number",
+      "description": "This is the best call back phone number the caller will give us if they say the current phone number they are calling us with is not the best one to reach them with."
+    },
+    {
+      "name": "accident_type",
+      "description": "The caller's answer to \"Q1: What type of accident was this?\" \n\nThis is the type of accident that the caller says happened to them. The accident could be a car, motorcycle, slip and fall, dog bite, pedestrian, bicycle or scooter accident.",
+      "type": "string",
+      "examples": [
+        "car accident",
+        "dog bite",
+        "slip and fall"
+      ]
+    },
+    {
+      "name": "accident_date",
+      "description": "The caller's answer to \"Q2: When did this happen?\"\n\nThis is the date that the accident happened. It is possible that the caller will not remember a specific date, we can also take date ranges e.g., May 2025, around June or July 2023, 25 August 2022",
+      "type": "string",
+      "examples": [
+        "May 2025",
+        "around June or July 2023",
+        "25 August 2022"
+      ]
+    },
+    {
+      "type": "string",
+      "name": "accident_location",
+      "description": "The caller's answer to \"Q3: Where did this happen?\"\n\nThis is the city or state in which the accident happened."
+    },
+    {
+      "type": "string",
+      "name": "injured_doctor_visit",
+      "description": "The caller's answer to \"Q4: Were you injured? Did you see a doctor?\"\n\nWhether or not the caller was injured and if they saw a doctor after the accident."
+    },
+    {
+      "type": "string",
+      "name": "at_fault_party",
+      "description": "The caller's answer to \"Q5: Who was at fault when the accident happened?\"\n\nWhether the caller is at fault or if other parties are at fault."
+    },
+    {
+      "type": "string",
+      "name": "police_report_filed",
+      "description": "The caller's answer to \"Q6: Was a police report filed?\"\n\nWhether the police came to the scene and if a report was filed"
+    },
+    {
+      "type": "string",
+      "name": "insurance_contacted",
+      "description": "The caller's answer to Q7: Have you spoken with insurance yet?\n\nWhether they have spoken with the insurance company and if offers have been made."
+    },
+    {
+      "type": "system-presets",
+      "name": "call_summary",
+      "description": "Write a 1-3 sentence summary of the call based on the call transcript. Should capture the important information and actions taken during the call."
+    },
+    {
+      "type": "system-presets",
+      "name": "call_successful",
+      "description": "Evaluate whether the agent seems to have a successful call with the user, where the agent finishes the task, and the call was complete without being cutoff."
+    }
+  ],
+  "llm": {
+    "model": "gpt-4.1",
+    "model_temperature": null,
+    "tool_call_strict_mode": null,
+    "begin_message": "Thank you for calling Rodriguez & Martinez Law. My name is Sofia, and I'm a digital assistant. This call is being recorded. What personal injury matter can I help you with today?",
+    "default_dynamic_variables": [],
+    "tools": [
+      {
+        "type": "end_call",
+        "name": "end_call",
+        "description": "End the call when user has to leave (like says bye) or you are instructed to do so."
+      },
+      {
+        "parameter_type": "json",
+        "method": "POST",
+        "query_params": {},
+        "description": "When users agree on an available time, book it on the calendar. The time parameter should be a full absolute date, such as \"Thursday, 2025 May 5/15/2025 10 AM\" (even if the user asks for a relative date such as \"next Tuesday\", convert it to absolute date). The time should always be IN THE FUTURE, the time right now is {{current_time_America/New_York}} (Eastern Time). The timezone parameter should always be \"America/New_York\". The notes parameter should have a one sentence summary of the conversation. The guests parameter should be \"user@example.com\". The name parameter should be {{first_name}} {{last_name}}. rescheduleReason should be \"first time booking\".",
+        "type": "custom",
+        "url": "https://your-n8n-instance.example.com/webhook/YOUR_WEBHOOK_PATH",
+        "args_at_root": false,
+        "execution_message_description": "Booking you on the calendar right now",
+        "timeout_ms": 120000,
+        "speak_after_execution": true,
+        "name": "book_appointment",
+        "response_variables": {},
+        "speak_during_execution": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "last_name": {
+              "type": "string",
+              "description": "The caller's last name."
+            },
+            "email_address": {
+              "type": "string",
+              "description": "The caller's email address."
+            },
+            "first_name": {
+              "type": "string",
+              "description": "The caller's first name."
+            },
+            "absolute_time": {
+              "type": "string",
+              "description": "The ISO timestamp of the chosen appointment time."
+            }
+          },
+          "required": [
+            "first_name",
+            "last_name",
+            "absolute_time",
+            "email_address"
+          ]
+        }
+      },
+      {
+        "parameter_type": "json",
+        "method": "POST",
+        "query_params": {},
+        "description": "Check the calendar for open slots and availability",
+        "type": "custom",
+        "url": "https://your-n8n-instance.example.com/webhook/YOUR_WEBHOOK_PATH",
+        "args_at_root": false,
+        "execution_message_description": "Give me a moment while I check the calendar",
+        "timeout_ms": 120000,
+        "speak_after_execution": true,
+        "name": "check_availability",
+        "response_variables": {},
+        "speak_during_execution": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "soonest_availability": {
+              "type": "string",
+              "description": "Human-readable earliest available appointment"
+            },
+            "full_week_availability": {
+              "type": "string",
+              "description": "Human-readable form of all available slots for the upcoming 7 days"
+            }
+          },
+          "required": [
+            "soonest_availability",
+            "full_week_availability"
+          ]
+        }
+      }
+    ]
+  },
+  "webhook": "https://your-n8n-instance.example.com/webhook/YOUR_WEBHOOK_PATH"
+}
